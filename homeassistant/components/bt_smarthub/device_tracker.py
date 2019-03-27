@@ -1,6 +1,5 @@
 """
-Support for BT Smart Hub (Sometimes referred to as BT Home Hub 6).
-
+Support for BT Smart Hub and BT Smart Hub 2.
 For more details about this platform, please refer to the documentation at
 https://home-assistant.io/components/device_tracker.bt_smarthub/
 """
@@ -13,14 +12,16 @@ from homeassistant.components.device_tracker import (
     DOMAIN, PLATFORM_SCHEMA, DeviceScanner)
 from homeassistant.const import CONF_HOST
 
-REQUIREMENTS = ['btsmarthub_devicelist==0.1.3']
+REQUIREMENTS = ['btsmarthub_devicelist==0.2.0']
 
 _LOGGER = logging.getLogger(__name__)
 
 CONF_DEFAULT_IP = '192.168.1.254'
+CONF_SMARTHUB_MODEL = 'smarthub_model'
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Optional(CONF_HOST, default=CONF_DEFAULT_IP): cv.string,
+    vol.Optional(CONF_SMARTHUB_MODEL, default=None): cv.positive_int,
 })
 
 
@@ -37,9 +38,15 @@ class BTSmartHubScanner(DeviceScanner):
     def __init__(self, config):
         """Initialise the scanner."""
         _LOGGER.debug("Initialising BT Smart Hub")
+        import btsmarthub_devicelist
+
         self.host = config[CONF_HOST]
+        self.router_model = config[CONF_SMARTHUB_MODEL]
         self.last_results = {}
         self.success_init = False
+
+        self.smarthub = btsmarthub_devicelist.BTSmartHub(router_ip=self.host,
+                                                         smarthub_model=self.router_model)
 
         # Test the router is accessible
         data = self.get_bt_smarthub_data()
@@ -78,10 +85,8 @@ class BTSmartHubScanner(DeviceScanner):
 
     def get_bt_smarthub_data(self):
         """Retrieve data from BT Smart Hub and return parsed result."""
-        import btsmarthub_devicelist
         # Request data from bt smarthub into a list of dicts.
-        data = btsmarthub_devicelist.get_devicelist(
-            router_ip=self.host, only_active_devices=True)
+        data = self.smarthub.get_devicelist(only_active_devices=True)
         # Renaming keys from parsed result.
         devices = {}
         for device in data:
